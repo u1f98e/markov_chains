@@ -23,7 +23,7 @@ struct Args {
     output_size: u32,
 
     /// The number of tokens to use per state in the transition matrix. Default
-    /// is 2, and performance decreases exponentially when increased.
+    /// is 2, performance decreases exponentially when increased.
     ///
     /// When loading an existing matrix this option is ignored.
     #[arg(short('t'), long, default_value_t = 2)]
@@ -36,8 +36,6 @@ struct Args {
         default_missing_value = "markov.bin")]
     save: Option<PathBuf>,
 }
-
-// static TOKENS_PER_STATE: usize = 3;
 
 /// Magic numbers prefixed to exported transition matrix files, so we can detect
 /// them more easily.
@@ -52,14 +50,10 @@ impl State {
     }
 
     pub fn from_slice(tokens: &[String], state_size: usize) -> Self {
-        // let mut last_tokens: [String; TOKENS_PER_STATE] = Default::default();
-
         // Clone the last `size` tokens into the front of `last_tokens`
         let index = tokens.len().saturating_sub(state_size);
         let slice = &tokens[index..];
         Self::new(slice.to_vec())
-        // last_tokens[..slice.len()].clone_from_slice(slice);
-        // Self::new(last_tokens.try_into().unwrap())
     }
 }
 
@@ -109,6 +103,7 @@ impl StateIndex for Vec<State> {
 
 type MarkovGenerator = MarkovGeneratorBase<Vec<State>>;
 
+// TODO: Consider a custom ser/de impelmentation to avoid writing the size for every state
 #[derive(Serialize, Deserialize)]
 struct MarkovGeneratorBase<S>
 where
@@ -274,7 +269,7 @@ fn main() -> io::Result<()> {
     let mut output = Vec::new();
     let mut prev_state = if let Some(s) = args.initial_phrase {
         let initial_tokens = tokenize_input(&mut s.as_bytes())?;
-        let s = State::from_slice(&initial_tokens, args.state_size as usize);
+        let s = State::from_slice(&initial_tokens, markov.state_size as usize);
         output.extend(initial_tokens);
         s
     } else {
@@ -283,7 +278,8 @@ fn main() -> io::Result<()> {
         s.clone()
     };
 
-    for _ in 0..args.output_size {
+    let total_tokens = args.output_size / markov.state_size;
+    for _ in 0..total_tokens {
         prev_state = markov.predict(&prev_state);
         output.extend_from_slice(&prev_state);
     }
