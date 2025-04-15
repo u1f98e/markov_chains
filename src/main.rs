@@ -203,9 +203,9 @@ fn tokenize_input<R: BufRead>(reader: &mut R) -> io::Result<Vec<String>> {
                 finish_token(&mut current_token, &mut tokens);
             }
 
-            current_token.push(ch);
+            current_token.push(ch.to_ascii_lowercase());
         } else {
-            current_token.push(ch);
+            current_token.push(ch.to_ascii_lowercase());
         }
     }
 
@@ -214,16 +214,33 @@ fn tokenize_input<R: BufRead>(reader: &mut R) -> io::Result<Vec<String>> {
 }
 
 fn format_output(tokens: &Vec<String>) -> String {
+    fn capitalize(word: &str) -> String {
+        let mut c = word.chars();
+        match c.next() {
+            None => String::new(),
+            Some(first) => first.to_uppercase().collect::<String>() + c.as_str(),
+        }
+    }
+
     let mut output = String::new();
+    let mut capitalize_next = true;
     for token in tokens {
-        if !token
-            .chars()
-            .next()
-            .is_none_or(|c| c.is_ascii_punctuation())
-        {
+        // Add a space before this token, unless it's punctuation or the beginning of the output.
+        let first_char = token.chars().next();
+        if !(first_char.is_none_or(|c| c.is_ascii_punctuation()) || output.is_empty()) {
             output.push(' ');
         }
-        output.push_str(&token);
+
+        if capitalize_next {
+            capitalize_next = false;
+            output.push_str(&capitalize(&token));
+        } else {
+            output.push_str(&token);
+        }
+
+        if first_char.is_some_and(|c| c == '.' || c == ';' || c == '!' || c == '?') {
+            capitalize_next = true;
+        }
     }
 
     output
